@@ -7,6 +7,7 @@ public class MainFrame extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainPanel;
 
+    private LoginPanel loginPanel; // New: 로그인 화면
     private StartPanel startPanel;
     private JPanel quizCard;          // <- 퀴즈 화면(복합 패널)
 
@@ -25,6 +26,7 @@ public class MainFrame extends JFrame {
         mainPanel = new JPanel(cardLayout);
 
         // 패널 생성
+        loginPanel = new LoginPanel();
         startPanel = new StartPanel();
         questionPanel = new QuestionPanel();
         answerPanel = new AnswerPanel();
@@ -32,15 +34,25 @@ public class MainFrame extends JFrame {
         statsPanel = new StatsPanel();
         profilePanel = new ProfilePanel();
 
+        // ▶ 사이드바 패널 생성 (Profile + Stats)
+        JPanel sidebarPanel = new JPanel();
+        sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS)); // 세로 배치
+        sidebarPanel.setPreferredSize(new Dimension(150, 0)); // 너비 지정
+        sidebarPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        sidebarPanel.add(profilePanel);
+        sidebarPanel.add(Box.createVerticalStrut(20)); // 간격
+        sidebarPanel.add(statsPanel);
+        sidebarPanel.add(Box.createVerticalGlue()); // 나머지 공간 채우기
+
         // ▶ QUIZ 카드(한 화면에 합치기)
         quizCard = new JPanel(new BorderLayout(0, 10));
         quizCard.add(feedbackPanel, BorderLayout.NORTH);   // 위: 정답/오답 피드백
         quizCard.add(questionPanel, BorderLayout.CENTER);  // 가운데: 문제
         quizCard.add(answerPanel, BorderLayout.SOUTH);     // 아래: 입력창+제출 버튼
-        // 필요하면 오른쪽에 통계 붙이기:
-        // quizCard.add(statsPanel, BorderLayout.EAST);
+        quizCard.add(sidebarPanel, BorderLayout.EAST);     // New: 사이드바 추가
 
         // 카드 등록
+        mainPanel.add(loginPanel, "LOGIN");
         mainPanel.add(startPanel, "START");
         mainPanel.add(quizCard,   "QUIZ");
 
@@ -50,6 +62,7 @@ public class MainFrame extends JFrame {
     }
 
     // 화면 전환 유틸
+    public void showLogin() { cardLayout.show(mainPanel, "LOGIN"); } // New
     public void showStart() { cardLayout.show(mainPanel, "START"); }
     public void showQuiz()  { 
         cardLayout.show(mainPanel, "QUIZ"); 
@@ -59,6 +72,7 @@ public class MainFrame extends JFrame {
     }
 
     // 필요시 getter
+    public LoginPanel getLoginPanel() { return loginPanel; } // New
     public StartPanel getStartPanel() { return startPanel; }
     public QuestionPanel getQuestionPanel() { return questionPanel; }
     public AnswerPanel getAnswerPanel() { return answerPanel; }
