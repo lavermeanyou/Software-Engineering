@@ -11,8 +11,8 @@ public class AnswerPanel extends JPanel {
     public AnswerPanel() {
         setLayout(new FlowLayout());
 
-        answerField = new JTextField(5);
-        answerField.setFont(new Font("Arial", Font.PLAIN, 24));
+        answerField = new JTextField(15); 
+        answerField.setFont(new Font("Malgun Gothic", Font.PLAIN, 24));
         submitButton = new JButton("제출");
 
         add(new JLabel("답 입력:"));
@@ -26,13 +26,13 @@ public class AnswerPanel extends JPanel {
     public JTextField getAnswerField() { return answerField; }
     public JButton getSubmitButton() { return submitButton; }
 
-    // 입력값 가져오기
-    public char getInputChar() {
+    // 입력값 가져오기 (String 전체를 반환)
+    public String getInputText() {
         String text = answerField.getText();
-        if (text != null && text.length() > 0) {
-            return text.charAt(0);
+        if (text != null) {
+            return text.trim();
         }
-        return '\0';
+        return "";
     }
 
     // 입력 필드 초기화

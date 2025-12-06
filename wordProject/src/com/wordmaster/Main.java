@@ -6,15 +6,19 @@ import ui.*;
 
 import javax.swing.*;
 import java.util.List;
+import java.util.ArrayList;
+
+// (MainFrame, LoginPanel, SignUpDialog, AuthService 등의 클래스가 존재함을 가정합니다)
 
 public class Main {
     public static void main(String[] args) {
-        // CSV 읽기 (resources를 Source Folder로 등록했고 파일명만 넘깁니다)
+        // CSV 읽기 (Slang 모드 지원을 위해 words.csv와 slang.csv 로드)
         CSVLoader loader = new CSVLoader();
-        List<Word> words = loader.loadWords("words.csv");
+        List<Word> normalWords = loader.loadWords("words.csv");
+        List<Word> slangWords = loader.loadWords("slang.csv");
 
         // 사용자/세션/통계
-        final User[] userRef = new User[1]; // 현재 로그인한 사용자
+        final User[] userRef = new User[1]; 
         final Session[] sessionRef = new Session[1];
         final Stats[] statsRef = new Stats[1];
         statsRef[0] = new Stats();
@@ -24,6 +28,7 @@ public class Main {
         AccuracyTracker accuracyTracker = new AccuracyTracker();
         WrongWordTracker wrongWordTracker = new WrongWordTracker();
         
+        // 인증 서비스 (실제 구현 필요)
         AuthService authService = new AuthService(); 
 
         // UI
@@ -37,7 +42,8 @@ public class Main {
         ProfilePanel pPanel = frame.getProfilePanel();
         SignUpDialog signUpDialog = new SignUpDialog(frame); 
 
-        final Word[] current = new Word[1];
+        // 현재 문제를 익명리스너에서 바꾸기 위해 배열로 보관
+        final Word[] current = new Word[1]; 
 
         // ---------------------------------------------------------------------
         // ▶ 로그인/회원가입 이벤트 처리
@@ -69,11 +75,10 @@ public class Main {
             
             if (loggedInUser != null) {
                 userRef[0] = loggedInUser;
+                // userRef[0].setSaveCallback(user -> authService.saveUser(user)); 
                 
-                userRef[0].setSaveCallback(user -> authService.saveUser(user)); 
-                
-                pPanel.updateProfile(userRef[0]); // 프로필 업데이트
-                frame.showStart(); // 시작 화면으로 전환
+                pPanel.updateProfile(userRef[0]); 
+                frame.showStart(); 
                 login.clearFields();
                 JOptionPane.showMessageDialog(frame, loggedInUser.getUsername() + "님, 환영합니다! (레벨: " + loggedInUser.getLevel() + ")", "로그인 성공", JOptionPane.INFORMATION_MESSAGE);
             } else {
@@ -82,45 +87,91 @@ public class Main {
         });
 
         // ---------------------------------------------------------------------
-        // "새 게임 시작" 버튼
+        // ▶ 게임 시작 및 진행 이벤트 처리
         // ---------------------------------------------------------------------
+
+        // "새 게임 시작" 버튼
         start.getNewGameButton().addActionListener(e -> {
             if (userRef[0] == null) {
-                JOptionPane.showMessageDialog(frame, "로그인이 필요합니다.", "경고", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "게임을 시작하려면 먼저 로그인해야 합니다.", "로그인 필요", JOptionPane.WARNING_MESSAGE);
                 frame.showLogin();
                 return;
             }
             
-            sessionRef[0] = new Session(userRef[0], words); // 새 세션 (로그인된 사용자 사용)
-            statsRef[0]   = new Stats();              // 통계 리셋
+            List<Word> selectedWords;
+            if (start.isSlangModeSelected()) { // Slang Mode 체크
+                selectedWords = slangWords;
+                if (selectedWords.isEmpty()) {
+                    JOptionPane.showMessageDialog(frame, "슬랭 데이터가 없습니다!", "오류", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            } else {
+                selectedWords = normalWords;
+                if (selectedWords.isEmpty()) {
+                    JOptionPane.showMessageDialog(frame, "일반 단어 데이터가 없습니다!", "오류", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            }
+
+            sessionRef[0] = new Session(userRef[0], selectedWords);
+            statsRef[0]   = new Stats();              
+            
             current[0]    = sessionRef[0].getNextWord();
 
             if (current[0] != null) qPanel.setWord(current[0]);
+            fPanel.clearFeedback(); 
             aPanel.clearInput();
             sPanel.updateStats(statsRef[0]);
-            pPanel.updateProfile(userRef[0]); // 프로필 업데이트
+            pPanel.updateProfile(userRef[0]);
 
-            frame.showQuiz(); // 문제+입력창 카드로 전환
-            SwingUtilities.invokeLater(() -> aPanel.getAnswerField().requestFocusInWindow());
+            frame.showQuiz(); 
         });
 
+        // "제출" 버튼
         aPanel.getSubmitButton().addActionListener(e -> {
-            if (current[0] == null || userRef[0] == null) return;
+            if (current[0] == null) return;
+            if (userRef[0] == null) return;
 
-            char input = aPanel.getInputChar();
-            boolean ok = answerChecker.checkAnswer(current[0], input);
+            String input = aPanel.getInputText(); 
+            boolean ok = answerChecker.checkAnswer(current[0], input); 
             
+            String correctAnswer;
+            
+            if (current[0].isSlang()) {
+                // 슬랭 모드: 정답은 한글 뜻
+                correctAnswer = current[0].getMeaning();
+            } else {
+                // [일반 단어장 모드] 정답은 빈칸에 들어갈 영문자
+                correctAnswer = String.valueOf(current[0].getCorrectChar());
+            }
+
+            // 피드백 로직 분기
             if (ok) {
-                userRef[0].addExp(1); 
+                fPanel.showFeedback(true, correctAnswer); 
+            } else {
+                if (current[0].isSlang()) {
+                    // 슬랭 오답: 팝업 메시지와 해설 (슬랭 구조 유지)
+                    String fullExplanation = current[0].getFullExplanation(); 
+                    String message = String.format("오답! 정답: %s\n\n해설: %s", 
+                                                 correctAnswer, 
+                                                 fullExplanation.isEmpty() ? "해설 없음" : fullExplanation); 
+
+                    JOptionPane.showMessageDialog(frame, message, "오답 해설", JOptionPane.ERROR_MESSAGE);
+                    fPanel.showFeedback(false, correctAnswer); 
+                } else {
+                    // 일반 단어장 모드 오답: FeedbackPanel에 영문자 정답 표시 (기존 동작 복구)
+                    fPanel.showFeedback(false, correctAnswer); 
+                }
             }
             
-            fPanel.showFeedback(ok,
-                String.valueOf(current[0].getEnglish().charAt(current[0].getBlankIndex())));
             accuracyTracker.updateStats(statsRef[0], ok);
             if (!ok) wrongWordTracker.recordWrongWord(current[0]);
+            
+            // 경험치 추가
+            userRef[0].addExp(ok ? 10 : 5); 
 
             sPanel.updateStats(statsRef[0]);
-            pPanel.updateProfile(userRef[0]); // 프로필 정보 갱신
+            pPanel.updateProfile(userRef[0]); 
 
             Word next = sessionRef[0].getNextWord();
             if (next != null) {
@@ -134,7 +185,7 @@ public class Main {
             }
         });
 
-        // 처음에는 로그인 화면
-        frame.showLogin();
+        // 처음에는 로그인 화면을 표시합니다.
+        frame.showLogin(); 
     }
 }

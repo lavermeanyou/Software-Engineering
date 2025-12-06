@@ -17,8 +17,13 @@ public class QuestionPanel extends JPanel {
 
     public void setWord(Word word) {
         if (word != null) {
-            // 오른쪽 괄호 안에 '뜻'을 그대로 보여줍니다.
-            wordLabel.setText(word.getDisplayWord() + "  (" + word.getMeaning() + ")");
+            if (word.isSlang()) {
+                // 슬랭 모드: 0번째 인덱스(English)만 표시
+                wordLabel.setText(word.getDisplayWord()); 
+            } else {
+                // 일반 모드: 빈칸 처리된 단어 + 뜻을 함께 표시
+                wordLabel.setText(word.getDisplayWord() + "  (" + word.getMeaning() + ")");
+            }
         } else {
             wordLabel.setText("문제가 없습니다");
         }

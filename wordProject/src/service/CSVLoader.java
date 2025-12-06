@@ -9,7 +9,7 @@ import java.util.List;
 
 public class CSVLoader {
 
-    public List<Word> loadWords(InputStream is) {
+    private List<Word> loadFromStream(InputStream is, boolean isSlang) {
         List<Word> wordList = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             String line;
@@ -20,8 +20,29 @@ public class CSVLoader {
                 if (parts.length >= 3) {
                     String english = parts[0].trim();
                     String meaning = parts[1].trim();
-                    int difficulty = Integer.parseInt(parts[2].trim());
-                    wordList.add(new Word(english, meaning, difficulty));
+                    String thirdColumn = parts[2].trim(); 
+                    
+                    int blankIndex; 
+
+                    if (isSlang) {
+                        blankIndex = 0; 
+                    } else {
+                        try {
+                            blankIndex = Integer.parseInt(thirdColumn);
+                        } catch (NumberFormatException e) {
+                            System.err.println("CSV 파싱 오류: difficulty 필드(3번째)가 숫자가 아닙니다. - " + thirdColumn);
+                            blankIndex = 0; 
+                        }
+                    }
+                    
+                    Word newWord = new Word(english, meaning, blankIndex);
+                    newWord.setSlang(isSlang); 
+                    
+                    if (isSlang) {
+                        newWord.setFullExplanation(thirdColumn); 
+                    }
+                    
+                    wordList.add(newWord);
                 }
             }
         } catch (IOException e) {
@@ -30,13 +51,19 @@ public class CSVLoader {
         return wordList;
     }
 
-    // 클래스패스에서 읽기 (Main에서 loader.loadWords("words.csv")로 사용)
+    public List<Word> loadWords(InputStream is) {
+        return loadFromStream(is, false);
+    }
+
     public List<Word> loadWords(String filename) {
         InputStream is = getClass().getClassLoader().getResourceAsStream(filename);
         if (is == null) {
             System.err.println("파일을 찾을 수 없습니다: " + filename);
             return new ArrayList<>();
         }
-        return loadWords(is);
+        
+        boolean isSlang = filename.toLowerCase().contains("slang");
+        
+        return loadFromStream(is, isSlang);
     }
 }
